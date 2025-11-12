@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAIBP SD Kelas 5: Belajar Seru</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #38bdf8; /* Sky Blue */
+            --color-secondary: #facc15; /* Yellow */
+            --color-accent: #10b981; /* Emerald Green */
+            --color-bg: #f0f9ff; /* Lightest Blue */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-bg);
+        }
+        .nav-button {
+            transition: all 0.2s;
+        }
+        .nav-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        .active-tab {
+            background-color: var(--color-primary);
+            color: white;
+            box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.5), 0 4px 6px -4px rgba(56, 189, 248, 0.5);
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+        .card:hover {
+             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+             transform: translateY(-3px);
+        }
+        /* Style for generated content */
+        .content-display h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid var(--color-secondary);
+            padding-bottom: 5px;
+        }
+        .content-display p {
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            color: #4b5563;
+        }
+        .content-display ul, .content-display ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+            list-style-type: disc;
+            color: #374151;
+        }
+        .content-display ul li, .content-display ol li {
+            margin-bottom: 0.5rem;
+        }
+        .spinner {
+            border-top-color: #38bdf8;
+            border-left-color: #38bdf8;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white shadow-lg sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center">
+            <h1 class="text-3xl font-bold text-gray-800 flex items-center mb-4 sm:mb-0">
+                <span class="text-4xl mr-3 text-yellow-500">🕌</span> PAIBP Kelas 5
+            </h1>
+            <p id="auth-status" class="text-sm text-gray-500"></p>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Navigation Tabs -->
+        <div class="flex flex-wrap gap-4 mb-8 justify-center">
+            <button class="nav-button p-3 rounded-xl font-semibold text-lg bg-white text-gray-700 active-tab" data-view="mapel">📚 Mata Pelajaran</button>
+            <button class="nav-button p-3 rounded-xl font-semibold text-lg bg-white text-gray-700" data-view="tentang">🧑‍🏫 Tentang Aplikasi</button>
+            <button class="nav-button p-3 rounded-xl font-semibold text-lg bg-white text-gray-700" data-view="admin">⚙️ Pengaturan Admin</button>
+            <button class="nav-button p-3 rounded-xl font-semibold text-lg bg-white text-gray-700" data-view="bantuan">❓ Bantuan</button>
+        </div>
+
+        <!-- Content Display Area -->
+        <div id="content-container">
+            <!-- Content will be injected here -->
+        </div>
+
+    </div>
+
+    <!-- Firebase Script and Logic -->
+    <script type="module">
+        // Global variables provided by the Canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, query, orderBy, onSnapshot, setDoc, addDoc, serverTimestamp, getDocs, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Initialization
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=";
+        const apiKey = ""; // API key will be provided at runtime
+
+        if (firebaseConfig) {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            setLogLevel('Debug');
+        } else {
+            console.error("Firebase configuration not found.");
+        }
+
+        // --- AUTHENTICATION AND INIT ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                document.getElementById('auth-status').textContent = `Pengguna Aktif (Admin/Guru): ${userId}`;
+                isAuthReady = true;
+            } else {
+                // Should only happen if initial auth fails or token is missing
+                userId = 'anon_' + crypto.randomUUID();
+                document.getElementById('auth-status').textContent = `Sesi Anonim: ${userId}`;
+                isAuthReady = true;
+            }
+            renderView(currentView);
+        });
+
+        // Attempt initial sign-in
+        if (auth) {
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch(error => {
+                    console.error("Custom token sign-in failed, falling back to anonymous:", error);
+                    signInAnonymously(auth);
+                });
+            } else {
+                signInAnonymously(auth);
+            }
+        }
+
+        // --- CORE APPLICATION STATE & NAVIGATION ---
+        const contentContainer = document.getElementById('content-container');
+        let currentView = 'mapel';
+        let lessonsData = {};
+        let selectedLesson = null;
+        const navButtons = document.querySelectorAll('.nav-button');
+
+        navButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const targetView = e.target.getAttribute('data-view');
+                if (targetView) {
+                    currentView = targetView;
+                    selectedLesson = null; // Reset lesson view on tab switch
+                    renderView(currentView);
+                    navButtons.forEach(btn => btn.classList.remove('active-tab'));
+                    e.target.classList.add('active-tab');
+                }
+            });
+        });
+
+        function renderView(view) {
+            contentContainer.innerHTML = '';
+            switch (view) {
+                case 'mapel':
+                    if (selectedLesson) {
+                        renderLessonDetail(selectedLesson);
+                    } else {
+                        renderLessonList();
+                    }
+                    break;
+                case 'tentang':
+                    renderAbout();
+                    break;
+                case 'admin':
+                    renderAdminPanel();
+                    break;
+                case 'bantuan':
+                    renderHelp();
+                    break;
+            }
+        }
+
+        // --- FIREBASE DATA HANDLING (PUBLIC LESSONS) ---
+
+        const LESSONS_COLLECTION_PATH = `artifacts/${appId}/public/data/paibp_lessons`;
+
+        function setupLessonListener() {
+            if (!isAuthReady || !db) return;
+
+            const q = query(collection(db, LESSONS_COLLECTION_PATH));
+
+            onSnapshot(q, (snapshot) => {
+                lessonsData = {};
+                snapshot.forEach((doc) => {
+                    const lesson = { id: doc.id, ...doc.data() };
+                    const chapterKey = lesson.chapter || 'Bab Lain';
+
+                    if (!lessonsData[chapterKey]) {
+                        lessonsData[chapterKey] = [];
+                    }
+                    lessonsData[chapterKey].push(lesson);
+                });
+
+                // Sort lessons within chapters by createdAt (newest first)
+                for (const chapter in lessonsData) {
+                    lessonsData[chapter].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                }
+
+                // If the user is currently viewing the list, re-render it
+                if (currentView === 'mapel' && !selectedLesson) {
+                    renderLessonList();
+                }
+                // If a lesson is selected and it still exists, re-render its detail (e.g., if updated)
+                else if (selectedLesson) {
+                     const flatLessons = Object.values(lessonsData).flat();
+                     const updatedLesson = flatLessons.find(l => l.id === selectedLesson.id);
+                     if (updatedLesson) {
+                         selectedLesson = updatedLesson;
+                         renderLessonDetail(selectedLesson);
+                     } else {
+                         // Lesson was deleted, return to list
+                         selectedLesson = null;
+                         renderView('mapel');
+                     }
+                }
+            }, (error) => {
+                console.error("Error fetching lessons:", error);
+            });
+        }
+
+        // Wait for auth to be ready before setting up listener
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+            } else {
+                userId = 'anon_' + crypto.randomUUID();
+            }
+            isAuthReady = true;
+            setupLessonListener(); // Start listening for data changes
+            renderView(currentView); // Render the initial view
+        });
+
+        // --- VIEW RENDERING FUNCTIONS ---
+
+        function renderLessonList() {
+            let html = `
+                <h2 class="text-4xl font-extrabold text-gray-800 mb-6 text-center">
+                    📚 Pilihan Materi Pembelajaran
+                </h2>
+                <p class="text-center text-gray-600 mb-8">
+                    Yuk, pilih bab yang ingin kamu pelajari hari ini!
+                </p>
+                <div class="space-y-8">
+            `;
+
+            const chapterKeys = Object.keys(lessonsData).sort();
+
+            if (chapterKeys.length === 0) {
+                 html += `<div class="card p-6 text-center text-gray-500">
+                    Belum ada materi yang tersedia. Silakan masuk ke Pengaturan Admin untuk menambahkan konten baru.
+                 </div>`;
+            } else {
+                chapterKeys.forEach(chapter => {
+                    html += `
+                        <div class="bg-white p-6 rounded-2xl shadow-xl border-t-4 border-yellow-500">
+                            <h3 class="text-2xl font-bold text-teal-600 mb-4 flex items-center">
+                                <span class="text-3xl mr-3">📖</span> ${chapter}
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    `;
+                    lessonsData[chapter].forEach(lesson => {
+                        html += `
+                            <div class="card p-4 border-2 border-sky-100 hover:border-sky-400 cursor-pointer" onclick="viewLesson('${lesson.id}')">
+                                <p class="text-sm font-semibold text-gray-500">${lesson.contentType}</p>
+                                <h4 class="text-lg font-bold text-gray-800 mb-2">${lesson.title}</h4>
+                                <p class="text-xs text-gray-500">Dibuat: ${new Date(lesson.createdAt?.seconds * 1000).toLocaleDateString('id-ID')}</p>
+                                <div class="mt-2 text-right">
+                                    <button class="text-sm font-medium text-sky-600 hover:text-sky-800">Baca Selengkapnya →</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `</div>`;
+            contentContainer.innerHTML = html;
+
+            // Make viewLesson globally available for the inline click handler
+            window.viewLesson = (lessonId) => {
+                const flatLessons = Object.values(lessonsData).flat();
+                selectedLesson = flatLessons.find(l => l.id === lessonId);
+                if (selectedLesson) {
+                    renderLessonDetail(selectedLesson);
+                }
+            };
+        }
+
+        function renderLessonDetail(lesson) {
+            let html = `
+                <div class="mb-6">
+                    <button class="flex items-center text-lg text-sky-600 hover:text-sky-800 font-medium" onclick="backToLessonList()">
+                        <span class="mr-2">←</span> Kembali ke Daftar Bab
+                    </button>
+                </div>
+                <div class="card p-8 shadow-2xl">
+                    <span class="inline-block px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800 mb-3">${lesson.chapter}</span>
+                    <h2 class="text-4xl font-extrabold text-gray-900 mb-4">${lesson.title}</h2>
+                    <p class="text-gray-500 mb-6">Tipe Materi: <span class="font-semibold text-teal-600">${lesson.contentType}</span> | Dibuat oleh Admin ${new Date(lesson.createdAt?.seconds * 1000).toLocaleDateString('id-ID')}</p>
+
+                    <div class="content-display border-t pt-6 mt-6 border-gray-200">
+                        <!-- Generated Content -->
+                        ${lesson.contentHtml}
+                    </div>
+                </div>
+
+                <div class="mt-8 text-center">
+                    <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl" onclick="deleteLesson('${lesson.id}')">
+                        🗑️ Hapus Materi (Hanya Admin)
+                    </button>
+                </div>
+            `;
+            contentContainer.innerHTML = html;
+        }
+
+        window.backToLessonList = () => {
+            selectedLesson = null;
+            renderView('mapel');
+        };
+
+        window.deleteLesson = async (lessonId) => {
+            if (!userId.startsWith('anon_')) {
+                // Using a custom modal/message box instead of confirm()
+                showModal('Konfirmasi Penghapusan', 'Apakah Anda yakin ingin menghapus materi ini?', async () => {
+                    try {
+                        await setDoc(doc(db, LESSONS_COLLECTION_PATH, lessonId), { isDeleted: true }, { merge: true });
+                        showToast('✅ Materi berhasil dihapus!', 'success');
+                        selectedLesson = null;
+                        renderView('mapel');
+                    } catch (e) {
+                        console.error("Error removing document: ", e);
+                        showToast('❌ Gagal menghapus materi.', 'error');
+                    }
+                });
+            } else {
+                showToast('⛔ Akses Ditolak! Hanya guru/admin yang dapat menghapus materi.', 'error');
+            }
+        };
+
+        function renderAbout() {
+            contentContainer.innerHTML = `
+                <div class="card p-8 max-w-3xl mx-auto text-center">
+                    <h2 class="text-4xl font-extrabold text-gray-800 mb-6">🧑‍🏫 Tentang Aplikasi Belajar Seru</h2>
+                    <p class="text-xl text-gray-600 mb-6">
+                        Aplikasi ini dirancang khusus untuk mendukung pembelajaran **Pendidikan Agama Islam dan Budi Pekerti (PAIBP)** kelas 5 Sekolah Dasar.
+                    </p>
+                    <div class="space-y-4 text-left">
+                        <p><strong>✨ Tujuan Utama:</strong> Menyediakan materi yang menarik dan mudah diakses dalam berbagai format, disajikan dengan bahasa yang ramah anak.</p>
+                        <p><strong>🧠 Teknologi:</strong> Dibangun menggunakan HTML, Tailwind CSS, dan JavaScript. Menggunakan **Firestore** untuk menyimpan materi pelajaran secara *real-time* dan **Gemini API** untuk membantu guru dalam membuat konten baru dengan cepat dan relevan.</p>
+                        <p><strong>💖 Untuk Guru Hebat:</strong> Fitur Admin memungkinkan guru menghasilkan ide dan draft materi hanya dengan beberapa perintah, menghemat waktu perencanaan pembelajaran Anda!</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdminPanel() {
+             const isAdmin = !userId.startsWith('anon_');
+             if (!isAdmin) {
+                 contentContainer.innerHTML = `
+                    <div class="card p-8 max-w-xl mx-auto text-center bg-red-50 border border-red-300">
+                        <h2 class="text-3xl font-bold text-red-700 mb-4">⛔ Akses Terbatas!</h2>
+                        <p class="text-lg text-red-600">Fitur ini hanya dapat diakses oleh Guru/Admin yang sudah terautentikasi. Saat ini Anda berada dalam mode sesi anonim.</p>
+                        <p class="mt-4 text-sm text-red-500">Anda dapat melihat User ID di bagian atas halaman.</p>
+                    </div>
+                 `;
+                 return;
+             }
+
+            contentContainer.innerHTML = `
+                <div class="card p-8 max-w-4xl mx-auto">
+                    <h2 class="text-4xl font-extrabold text-gray-800 mb-4 flex items-center">
+                        ⚙️ Pengaturan Admin & Pembuat Konten Cerdas
+                    </h2>
+                    <p class="text-gray-600 mb-6">
+                        Gunakan Gemini AI untuk membuat materi PAIBP baru dengan cepat! Tuliskan deskripsi materi yang Anda inginkan (misalnya: 'Buatkan cerita singkat tentang kisah nabi Muhammad untuk anak SD kelas 5').
+                    </p>
+
+                    <div class="space-y-4">
+                        <label class="block text-gray-700 font-semibold">Bab Materi:</label>
+                        <input id="admin-chapter" type="text" placeholder="Contoh: Bab 1: Mari Belajar Al-Qur'an" class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-sky-500">
+
+                        <label class="block text-gray-700 font-semibold pt-2">Judul Materi:</label>
+                        <input id="admin-title" type="text" placeholder="Contoh: Kisah Teladan Nabi Muhammad SAW" class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-sky-500">
+
+                        <label class="block text-gray-700 font-semibold pt-2">Tipe Materi:</label>
+                        <select id="admin-content-type" class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-sky-500">
+                            <option value="Teks">Teks / Penjelasan</option>
+                            <option value="Cerita">Cerita / Kisah Teladan</option>
+                            <option value="Quiz">Soal / Kuis</option>
+                            <option value="Nasihat">Nasihat / Hikmah</option>
+                        </select>
+
+                        <label class="block text-gray-700 font-semibold pt-2">Prompt (Perintah untuk AI):</label>
+                        <textarea id="admin-prompt" rows="4" class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-sky-500" placeholder="Tuliskan perintah di sini..."></textarea>
+
+                        <button id="generate-button" class="w-full bg-accent hover:bg-emerald-600 text-white font-bold py-3 rounded-lg flex items-center justify-center transition">
+                            <span id="button-text">✨ Buat Materi dengan AI (Google Search Grounding Aktif)</span>
+                            <div id="loading-spinner" class="spinner border-4 border-transparent rounded-full w-5 h-5 ml-2 hidden"></div>
+                        </button>
+                    </div>
+
+                    <div id="ai-output" class="mt-8 p-6 bg-gray-50 rounded-xl border border-gray-200 hidden">
+                        <h3 class="text-2xl font-bold text-sky-600 mb-3">Hasil Draft Materi (Silakan Review!)</h3>
+                        <div id="generated-content-preview" class="content-display min-h-[100px] bg-white p-4 rounded-lg border"></div>
+                        <button id="save-button" class="mt-4 bg-sky-500 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition hidden">
+                            💾 Simpan Materi ke Database
+                        </button>
+                    </div>
+
+                    <div id="citation-container" class="mt-4 text-xs text-gray-500 hidden">
+                        <p class="font-semibold">Sumber Referensi:</p>
+                        <ul id="citation-list" class="list-disc ml-5 mt-1"></ul>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('generate-button').addEventListener('click', generateContent);
+            // Attach event listener for save only after it's visible
+        }
+
+        function renderHelp() {
+            contentContainer.innerHTML = `
+                <div class="card p-8 max-w-3xl mx-auto">
+                    <h2 class="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
+                        ❓ Panduan & Bantuan
+                    </h2>
+                    <div class="space-y-6">
+                        <div class="p-4 bg-sky-50 rounded-lg border-l-4 border-sky-400">
+                            <h3 class="text-xl font-bold text-sky-700 mb-2">Mata Pelajaran</h3>
+                            <p class="text-gray-600">Di sini siswa dapat melihat daftar bab dan materi PAIBP yang sudah ditambahkan. Klik judul materi untuk membaca isinya.</p>
+                        </div>
+                        <div class="p-4 bg-sky-50 rounded-lg border-l-4 border-sky-400">
+                            <h3 class="text-xl font-bold text-sky-700 mb-2">Pengaturan Admin</h3>
+                            <p class="text-gray-600">Hanya untuk Guru. Anda dapat memasukkan detail bab, judul, tipe materi, dan memberikan perintah (prompt) kepada AI untuk membuatkan draft materi baru. AI akan menggunakan Google Search untuk memastikan informasi yang diberikan relevan dan terkini.</p>
+                        </div>
+                        <div class="p-4 bg-sky-50 rounded-lg border-l-4 border-sky-400">
+                            <h3 class="text-xl font-bold text-sky-700 mb-2">Penting: Penyimpanan Data</h3>
+                            <p class="text-gray-600">Semua materi yang Anda buat dan simpan akan tersimpan secara otomatis di database Firestore dan dapat dilihat oleh semua pengguna secara *real-time*.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- GEMINI API INTERACTION ---
+
+        async function generateContent() {
+            const chapter = document.getElementById('admin-chapter').value.trim();
+            const title = document.getElementById('admin-title').value.trim();
+            const type = document.getElementById('admin-content-type').value;
+            const prompt = document.getElementById('admin-prompt').value.trim();
+
+            if (!chapter || !title || !prompt) {
+                showToast('🚨 Mohon lengkapi Bab, Judul, dan Prompt!', 'error');
+                return;
+            }
+
+            const button = document.getElementById('generate-button');
+            const buttonText = document.getElementById('button-text');
+            const spinner = document.getElementById('loading-spinner');
+            const outputDiv = document.getElementById('ai-output');
+            const previewDiv = document.getElementById('generated-content-preview');
+            const saveButton = document.getElementById('save-button');
+            const citationContainer = document.getElementById('citation-container');
+            const citationList = document.getElementById('citation-list');
+
+            // 1. UI Loading State
+            button.disabled = true;
+            buttonText.textContent = '⏳ AI Sedang Membuat Draft...';
+            spinner.classList.remove('hidden');
+            outputDiv.classList.add('hidden');
+            saveButton.classList.add('hidden');
+            citationContainer.classList.add('hidden');
+            previewDiv.innerHTML = '<p class="text-gray-400 p-4">Menunggu respons dari AI. Ini mungkin memakan waktu beberapa detik...</p>';
+
+            const systemPrompt = `Anda adalah seorang pengembang konten edukasi PAIBP (Pendidikan Agama Islam dan Budi Pekerti) untuk siswa Sekolah Dasar kelas 5 di Indonesia. Tugas Anda adalah menghasilkan materi pembelajaran yang menarik, mudah dipahami, dan sesuai dengan kurikulum. Jawab selalu dalam Bahasa Indonesia yang sederhana dan ramah anak. Sertakan ikon emoji yang sesuai (misalnya: 🕌, 📚, ✨). Materi yang Anda hasilkan harus berupa teks HTML yang sudah terformat, menggunakan tag seperti <h3>, <p>, <ul>, atau <ol> untuk presentasi yang bersih. Judul dan Bab sudah disediakan. Hanya berikan isi kontennya saja. Jangan pernah menggunakan kata-kata yang terlalu sulit atau konseptual.`;
+            const userQuery = `Buatkan materi PAIBP untuk Kelas 5 SD, Bab: "${chapter}", Judul: "${title}", Tipe: "${type}". Isi materi: "${prompt}"`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            // 2. API Call with Exponential Backoff
+            let maxRetries = 3;
+            let delay = 1000;
+            let response;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    response = await fetch(API_URL + apiKey, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status !== 429) break; // Break if not rate limited
+
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; // Exponential backoff
+
+                } catch (error) {
+                    console.error("Fetch error:", error);
+                    break;
+                }
+            }
+
+            // 3. Process Response
+            button.disabled = false;
+            buttonText.textContent = '✨ Buat Materi dengan AI (Google Search Grounding Aktif)';
+            spinner.classList.add('hidden');
+
+            try {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const generatedText = candidate.content.parts[0].text;
+                    let sources = [];
+                    const groundingMetadata = candidate.groundingMetadata;
+
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+                    }
+
+                    // Display Result
+                    previewDiv.innerHTML = generatedText;
+                    outputDiv.classList.remove('hidden');
+                    saveButton.classList.remove('hidden');
+
+                    // Display Citations
+                    citationList.innerHTML = '';
+                    if (sources.length > 0) {
+                        citationContainer.classList.remove('hidden');
+                        sources.forEach(source => {
+                            citationList.innerHTML += `<li><a href="${source.uri}" target="_blank" class="text-sky-600 hover:underline">${source.title}</a></li>`;
+                        });
+                    } else {
+                        citationContainer.classList.add('hidden');
+                    }
+
+                    // Attach save listener
+                    saveButton.onclick = () => saveContentToFirestore(chapter, title, type, generatedText);
+
+                } else {
+                    previewDiv.innerHTML = '<p class="text-red-500 p-4">❌ Gagal menghasilkan konten. Coba ganti prompt Anda.</p>';
+                    outputDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("Error processing Gemini response:", error);
+                previewDiv.innerHTML = '<p class="text-red-500 p-4">❌ Terjadi kesalahan koneksi atau server. Silakan coba lagi. (Lihat console untuk detail).</p>';
+                outputDiv.classList.remove('hidden');
+            }
+        }
+
+        // --- FIRESTORE SAVE FUNCTION ---
+
+        async function saveContentToFirestore(chapter, title, type, contentHtml) {
+            const saveButton = document.getElementById('save-button');
+            saveButton.disabled = true;
+            saveButton.textContent = '💾 Sedang Menyimpan...';
+
+            try {
+                await addDoc(collection(db, LESSONS_COLLECTION_PATH), {
+                    chapter: chapter,
+                    title: title,
+                    contentType: type,
+                    contentHtml: contentHtml,
+                    createdAt: serverTimestamp(),
+                    createdBy: userId
+                });
+
+                showToast('✅ Materi baru berhasil disimpan dan dipublikasikan!', 'success');
+                saveButton.textContent = '💾 Materi Berhasil Disimpan!';
+                setTimeout(() => {
+                    // Reset UI after saving
+                    document.getElementById('admin-chapter').value = '';
+                    document.getElementById('admin-title').value = '';
+                    document.getElementById('admin-prompt').value = '';
+                    document.getElementById('ai-output').classList.add('hidden');
+                    saveButton.disabled = false;
+                    saveButton.textContent = '💾 Simpan Materi ke Database';
+                }, 2000);
+
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                showToast('❌ Gagal menyimpan materi ke database.', 'error');
+                saveButton.disabled = false;
+                saveButton.textContent = '❌ Gagal Menyimpan! Coba Lagi.';
+            }
+        }
+
+
+        // --- UTILITY: Toast/Modal (NO alert/confirm) ---
+
+        // Simple Toast Message
+        function showToast(message, type = 'info') {
+            let bgColor = 'bg-sky-500';
+            if (type === 'error') bgColor = 'bg-red-500';
+            if (type === 'success') bgColor = 'bg-accent';
+
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-5 right-5 p-4 rounded-lg shadow-xl text-white font-bold ${bgColor} z-50 transition-opacity duration-300`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        }
+
+        // Custom Modal for Confirmation (replacing window.confirm)
+        function showModal(title, message, onConfirm) {
+            let modalHtml = `
+                <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full transform transition-all duration-300 scale-100">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">${title}</h3>
+                        <p class="text-gray-600 mb-6">${message}</p>
+                        <div class="flex justify-end space-x-3">
+                            <button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300">Batal</button>
+                            <button id="modal-confirm" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Ya, Hapus</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            const modal = document.getElementById('custom-modal');
+            const confirmBtn = document.getElementById('modal-confirm');
+            const cancelBtn = document.getElementById('modal-cancel');
+
+            const closeModal = () => modal.remove();
+
+            confirmBtn.onclick = () => {
+                onConfirm();
+                closeModal();
+            };
+
+            cancelBtn.onclick = closeModal;
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal();
+            };
+        }
+
+        // Initial render
+        renderView(currentView);
+    </script>
+</body>
+</html>
